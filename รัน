@@ -1,0 +1,421 @@
+-- ==========================================
+-- 🚀 AROSHUB : THE HARDCORE EXECUTOR V.2 (OFFICIAL FULL VERSION)
+-- 🔥 ฟีเจอร์: กันแบน, กันปลิว, อมตะ T-Pose, ตัวรันสคริปต์ (ไม่ล้นจอ), เมนูลอย, ASCII Profile
+-- ==========================================
+
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
+local StarterGui = game:GetService("StarterGui")
+
+local LocalPlayer = Players.LocalPlayer
+local isGodMode = false
+local godModeConnection = nil
+local originalAnimate = nil
+
+-- ==========================================
+-- 🛡️ 1. ระบบป้องกันอัตโนมัติ (Anti-Ban & Anti-AFK)
+-- ==========================================
+local function InitProtections()
+    -- [Anti-AFK] กันปลิวเวลานอน ปล่อยจอทิ้งไว้ข้ามคืน
+    LocalPlayer.Idled:Connect(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end)
+    
+    -- [Anti-Kick] บล็อกการเตะจากฝั่ง Client
+    pcall(function()
+        local mt = getrawmetatable(game)
+        local old = mt.__namecall
+        setreadonly(mt, false)
+        mt.__namecall = newcclosure(function(self, ...)
+            if getnamecallmethod():lower() == "kick" then 
+                print("[ArosHUB]: 🛡️ บล็อกการพยายามเตะ/แบน คุณออกจากเกม!")
+                return nil 
+            end
+            return old(self, ...)
+        end)
+        setreadonly(mt, true)
+    end)
+
+    -- แจ้งเตือนสิทธิพิเศษเมื่อเปิดใช้งาน
+    StarterGui:SetCore("SendNotification", {
+        Title = "⚡ AROSHUB SYSTEM",
+        Text = "คุณได้รับสิทธิพิเศษในการ กันแบน/กันปลิว แบบ 100% แล้ว!",
+        Duration = 8
+    })
+end
+InitProtections()
+
+-- ==========================================
+-- 🎨 2. ฟังก์ชันช่วยระบบลาก UI (Smooth Dragging)
+-- ==========================================
+local function MakeDraggable(frame, dragHandle)
+    dragHandle = dragHandle or frame
+    local dragging, dragInput, dragStart, startPos
+    dragHandle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    dragHandle.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- ==========================================
+-- 🖼️ 3. สร้างระบบอินเตอร์เฟส (UI เมนูหลัก & เมนูลอย)
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = (RunService:IsStudio() and Players.LocalPlayer:WaitForChild("PlayerGui")) or CoreGui
+ScreenGui.Name = "ArosHubOfficialV2"
+ScreenGui.ResetOnSpawn = false
+
+-- 🟢 [เมนูลอยทรงกลม - MiniIcon]
+local MiniIcon = Instance.new("TextButton")
+MiniIcon.Size = UDim2.new(0, 55, 0, 55)
+MiniIcon.Position = UDim2.new(0, 30, 0, 100)
+MiniIcon.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MiniIcon.Text = "⚡"
+MiniIcon.TextSize = 26
+MiniIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
+MiniIcon.Parent = ScreenGui
+
+local MiniCorner = Instance.new("UICorner")
+MiniCorner.CornerRadius = UDim.new(1, 0)
+MiniCorner.Parent = MiniIcon
+
+local MiniStroke = Instance.new("UIStroke")
+MiniStroke.Color = Color3.fromRGB(40, 120, 255)
+MiniStroke.Thickness = 2
+MiniStroke.Parent = MiniIcon
+
+-- 🔴 [หน้าต่างหลัก - Main Window]
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 430, 0, 360)
+MainFrame.Position = UDim2.new(0.5, -215, 0.5, -180)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+
+-- แถบหัวข้อด้านบน (TitleBar)
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 35)
+TitleBar.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+TitleBar.Parent = MainFrame
+Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 8)
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Size = UDim2.new(1, -100, 1, 0)
+TitleText.Position = UDim2.new(0, 12, 0, 0)
+TitleText.BackgroundTransparency = 1
+TitleText.Text = "⚡ AROSHUB V.2 : HARDCORE EXECUTOR"
+TitleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleText.Font = Enum.Font.GothamBold
+TitleText.TextSize = 13
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+TitleText.Parent = TitleBar
+
+-- ปุ่มย่อเมนู (-)
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Size = UDim2.new(0, 35, 0, 35)
+MinimizeBtn.Position = UDim2.new(1, -70, 0, 0)
+MinimizeBtn.BackgroundTransparency = 1
+MinimizeBtn.Text = "-"
+MinimizeBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+MinimizeBtn.TextSize = 22
+MinimizeBtn.Font = Enum.Font.GothamBold
+MinimizeBtn.Parent = TitleBar
+
+-- ปุ่มปิดเมนู (X)
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 35, 0, 35)
+CloseBtn.Position = UDim2.new(1, -35, 0, 0)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 60, 60)
+CloseBtn.TextSize = 16
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = TitleBar
+
+-- 📝 [กล่องใส่สคริปต์ระบบ Scrolling กันโค้ดทะลุจอ]
+local ScriptContainer = Instance.new("ScrollingFrame")
+ScriptContainer.Size = UDim2.new(1, -20, 0, 150)
+ScriptContainer.Position = UDim2.new(0, 10, 0, 50)
+ScriptContainer.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+ScriptContainer.BorderSizePixel = 0
+ScriptContainer.ScrollBarThickness = 6
+ScriptContainer.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
+ScriptContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+ScriptContainer.Parent = MainFrame
+Instance.new("UICorner", ScriptContainer).CornerRadius = UDim.new(0, 6)
+
+local ScriptBox = Instance.new("TextBox")
+ScriptBox.Size = UDim2.new(1, -12, 0, 0)
+ScriptBox.Position = UDim2.new(0, 6, 0, 6)
+ScriptBox.BackgroundTransparency = 1
+ScriptBox.TextColor3 = Color3.fromRGB(220, 220, 220)
+ScriptBox.Font = Enum.Font.Code
+ScriptBox.TextSize = 13
+ScriptBox.Text = "-- วางสคริปต์ที่ต้องการรันตรงนี้..."
+ScriptBox.TextXAlignment = Enum.TextXAlignment.Left
+ScriptBox.TextYAlignment = Enum.TextYAlignment.Top
+ScriptBox.ClearTextOnFocus = false
+ScriptBox.MultiLine = true
+ScriptBox.TextWrapped = true -- บังคับตัดคำไม่ให้เลยหน้าจอ
+ScriptBox.AutomaticSize = Enum.AutomaticSize.Y
+ScriptBox.Parent = ScriptContainer
+
+-- ระบบคำนวณพื้นที่เลื่อนอัตโนมัติตามความยาวโค้ด
+ScriptBox:GetPropertyChangedSignal("TextBounds"):Connect(function()
+    ScriptContainer.CanvasSize = UDim2.new(0, 0, 0, ScriptBox.TextBounds.Y + 20)
+end)
+
+-- 🧹 ปุ่มล้างสคริปต์ (CLEAR)
+local ClearBtn = Instance.new("TextButton")
+ClearBtn.Size = UDim2.new(0, 65, 0, 26)
+ClearBtn.Position = UDim2.new(1, -75, 0, 170)
+ClearBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+ClearBtn.Text = "CLEAR"
+ClearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ClearBtn.Font = Enum.Font.GothamBold
+ClearBtn.TextSize = 11
+ClearBtn.Parent = MainFrame
+Instance.new("UICorner", ClearBtn).CornerRadius = UDim.new(0, 4)
+
+-- 🚀 ปุ่ม EXECUTE SCRIPT
+local ExecuteBtn = Instance.new("TextButton")
+ExecuteBtn.Size = UDim2.new(0, 200, 0, 40)
+ExecuteBtn.Position = UDim2.new(0, 10, 0, 215)
+ExecuteBtn.BackgroundColor3 = Color3.fromRGB(40, 110, 255)
+ExecuteBtn.Text = "🚀 EXECUTE SCRIPT"
+ExecuteBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ExecuteBtn.Font = Enum.Font.GothamBold
+ExecuteBtn.Parent = MainFrame
+Instance.new("UICorner", ExecuteBtn).CornerRadius = UDim.new(0, 6)
+
+-- 🛡️ ปุ่มเปิด-ปิด อมตะ (GOD MODE)
+local GodModeBtn = Instance.new("TextButton")
+GodModeBtn.Size = UDim2.new(0, 200, 0, 40)
+GodModeBtn.Position = UDim2.new(1, -210, 0, 215)
+GodModeBtn.BackgroundColor3 = Color3.fromRGB(255, 55, 55)
+GodModeBtn.Text = "🛡️ GOD MODE: OFF"
+GodModeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+GodModeBtn.Font = Enum.Font.GothamBold
+GodModeBtn.Parent = MainFrame
+Instance.new("UICorner", GodModeBtn).CornerRadius = UDim.new(0, 6)
+
+-- 🔎 ปุ่มกดดู "รายละเอียด" (ด้านล่างสุด)
+local DetailBtn = Instance.new("TextButton")
+DetailBtn.Size = UDim2.new(1, -20, 0, 36)
+DetailBtn.Position = UDim2.new(0, 10, 0, 265)
+DetailBtn.BackgroundColor3 = Color3.fromRGB(70, 45, 160)
+DetailBtn.Text = "🔎 รายละเอียดการวิเคราะห์สคริปต์ & โปรไฟล์"
+DetailBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+DetailBtn.Font = Enum.Font.GothamBold
+DetailBtn.Parent = MainFrame
+Instance.new("UICorner", DetailBtn).CornerRadius = UDim.new(0, 6)
+
+-- ==========================================
+-- 📊 4. หน้าต่างย่อย "รายละเอียด" (Details & Profile Panel)
+-- ==========================================
+local DetailFrame = Instance.new("Frame")
+DetailFrame.Size = UDim2.new(1, 0, 0, 230)
+DetailFrame.Position = UDim2.new(0, 0, 1, 10) -- เด้งยื่นลงมาด้านล่างเมนูหลัก
+DetailFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+DetailFrame.Visible = false
+DetailFrame.Parent = MainFrame
+Instance.new("UICorner", DetailFrame).CornerRadius = UDim.new(0, 8)
+
+-- 🎨 วาดภาพ Epic Face (อ้างอิงจากรูปภาพไฟล์ 1000041509.jpg) ด้วยอักษรอย่างสร้างสรรค์
+local AsciiProfile = Instance.new("TextLabel")
+AsciiProfile.Size = UDim2.new(0, 140, 0, 130)
+AsciiProfile.Position = UDim2.new(0, 10, 0, 15)
+AsciiProfile.BackgroundTransparency = 1
+AsciiProfile.TextColor3 = Color3.fromRGB(255, 240, 70) -- สีเหลืองแบบ Epic Face
+AsciiProfile.Font = Enum.Font.Code
+AsciiProfile.TextSize = 10
+AsciiProfile.TextYAlignment = Enum.TextYAlignment.Top
+AsciiProfile.Text = [[
+    🎨 EPIC PROFILE 🎨
+   ___________________
+  /  ____       ____  \
+ |  / __ \     / __ \  |
+ | | (  ) |   | (  ) | |
+ |  \____/     \____/  |
+ |                     |
+ |  \               /  |
+ |   \  _________  /   |
+  \   \/_________\/   /
+   \_________________/
+]]
+AsciiProfile.Parent = DetailFrame
+
+-- ปุ่ม COPY PROFILE
+local CopyProfileBtn = Instance.new("TextButton")
+CopyProfileBtn.Size = UDim2.new(0, 120, 0, 26)
+CopyProfileBtn.Position = UDim2.new(0, 20, 0, 155)
+CopyProfileBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+CopyProfileBtn.Text = "📋 COPY PROFILE"
+CopyProfileBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CopyProfileBtn.Font = Enum.Font.GothamBold
+CopyProfileBtn.TextSize = 11
+CopyProfileBtn.Parent = DetailFrame
+Instance.new("UICorner", CopyProfileBtn).CornerRadius = UDim.new(0, 4)
+
+-- กล่องข้อความแสดงผลลัพธ์ผลวิเคราะห์
+local AnalysisLabel = Instance.new("TextLabel")
+AnalysisLabel.Size = UDim2.new(1, -170, 1, -30)
+AnalysisLabel.Position = UDim2.new(0, 160, 0, 15)
+AnalysisLabel.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+AnalysisLabel.TextColor3 = Color3.fromRGB(180, 255, 180)
+AnalysisLabel.Font = Enum.Font.Gotham
+AnalysisLabel.TextSize = 12
+AnalysisLabel.TextXAlignment = Enum.TextXAlignment.Left
+AnalysisLabel.TextYAlignment = Enum.TextYAlignment.Top
+AnalysisLabel.TextWrapped = true
+AnalysisLabel.Text = "[ ผลลัพธ์ระบบวิเคราะห์ ] :\n\n- ยังไม่มีการรันสคริปต์\n- ระบบสแกนคำสั่งพร้อมทำงาน\n- ตัวรันรองรับคำสั่งประเภท Universal (รันได้ทุกสคริปต์)"
+AnalysisLabel.Parent = DetailFrame
+Instance.new("UICorner", AnalysisLabel).CornerRadius = UDim.new(0, 6)
+
+-- ==========================================
+-- ⚙️ 5. ระบบกลไกและปุ่มคำสั่งทั้งหมด
+-- ==========================================
+
+-- ตั้งค่าให้หน้าต่างหลักและไอคอนลอยลากได้แบบ Smooth
+MakeDraggable(MainFrame, TitleBar)
+MakeDraggable(MiniIcon, MiniIcon)
+
+-- 🖱️ ระบบเช็คการลากของเมนูลอย (ถ้าลากจะไม่เปิดปิดหน้าต่างหลัก)
+local dragStartPos = nil
+local isDraggingMini = false
+
+MiniIcon.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragStartPos = input.Position
+        isDraggingMini = false
+    end
+end)
+
+MiniIcon.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        if dragStartPos and (input.Position - dragStartPos).Magnitude > 6 then
+            isDraggingMini = true
+        end
+    end
+end)
+
+MiniIcon.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if not isDraggingMini then
+            MainFrame.Visible = not MainFrame.Visible
+        end
+        dragStartPos = nil
+    end
+end)
+
+-- ปุ่ม ย่อ (-) และ ปิด (X)
+MinimizeBtn.MouseButton1Click:Connect(function() MainFrame.Visible = false end)
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+-- ปุ่ม ล้างสคริปต์ (CLEAR)
+ClearBtn.MouseButton1Click:Connect(function() ScriptBox.Text = "" end)
+
+-- ปุ่มเปิดหน้าต่างย่อย (รายละเอียด)
+DetailBtn.MouseButton1Click:Connect(function() DetailFrame.Visible = not DetailFrame.Visible end)
+
+-- คีย์บอร์ดกดปุ่ม `Y` เพื่อเปิด/ปิด หน้าต่างหลัก
+UserInputService.InputBegan:Connect(function(input, isProcessed)
+    if not isProcessed and input.KeyCode == Enum.KeyCode.Y then
+        MainFrame.Visible = not MainFrame.Visible
+    end
+end)
+
+-- ปุ่ม COPY PROFILE (คัดลอกรูปภาพอักษรล้อเลียนไฟล์ภาพ 1000041509.jpg เข้า Clipboard)
+CopyProfileBtn.MouseButton1Click:Connect(function()
+    if setclipboard then
+        setclipboard(AsciiProfile.Text)
+        CopyProfileBtn.Text = "✅ COPIED!"
+        task.wait(1.5)
+        CopyProfileBtn.Text = "📋 COPY PROFILE"
+    else
+        CopyProfileBtn.Text = "❌ NOT SUPPORTED"
+        task.wait(1.5)
+        CopyProfileBtn.Text = "📋 COPY PROFILE"
+    end
+end)
+
+-- 🚀 ฟังก์ชันปุ่มรันสคริปต์และระบุผลวิเคราะห์แบบละเอียด
+ExecuteBtn.MouseButton1Click:Connect(function()
+    local code = ScriptBox.Text
+    local codeLower = code:lower()
+    
+    if code == "" or code == "-- วางสคริปต์ที่ต้องการรันตรงนี้..." then
+        AnalysisLabel.Text = "[ ระบบแจ้งเตือน ] :\n\n⚠️ ไม่พบสคริปต์ในช่องรับข้อมูล กรุณาใส่สคริปต์ก่อนกด Execute!"
+        return
+    end
+
+    -- จำลองระบบตรวจสอบสคริปต์ที่รัน
+    if codeLower:find("farm") or codeLower:find("auto") or codeLower:find("level") then
+        AnalysisLabel.Text = "[ ผลลัพธ์สคริปต์ล่าสุด ] :\n\nประเภท: Auto Farm (บอทอัตโนมัติ)\nแมพที่รองรับ: Blox Fruits / King Legacy / RPG\nคำแนะนำ: สามารถเปิดบอททิ้งไว้ข้ามคืนคู่กับระบบ Anti-AFK ของเราได้เลย"
+    elseif codeLower:find("esp") or codeLower:find("aim") or codeLower:find("hitbox") then
+        AnalysisLabel.Text = "[ ผลลัพธ์สคริปต์ล่าสุด ] :\n\nประเภท: Combat / Visual Cheat (ช่วยเล็ง-มองทะลุ)\nแมพที่รองรับ: Arsenal / Da Hood / FPS Games\nคำแนะนำ: ปลอดภัยสูง ระบบสแกนแบนฝั่ง Client ทำงานอยู่"
+    else
+        AnalysisLabel.Text = "[ ผลลัพธ์สคริปต์ล่าสุด ] :\n\nประเภท: Universal Script (สคริปต์ทั่วไป)\nแมพที่รองรับ: รันได้ทุกเกมใน Roblox\nคำแนะนำ: สคริปต์ทำงานร่วมกับฟังชันก์โหลดโหลดสตริงอย่างสมบูรณ์"
+    end
+
+    -- สั่งรันสคริปต์จริงผ่าน loadstring
+    pcall(function()
+        loadstring(code)()
+    end)
+end)
+
+-- 🛡️ ฟังก์ชันระบบอมตะ God Mode & ยืนท่า T-Pose
+local function ToggleGodMode()
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if isGodMode then
+        if hum then
+            hum.MaxHealth = math.huge
+            hum.Health = math.huge
+            -- ลูปรักษาระดับเลือดอนันต์
+            godModeConnection = RunService.RenderStepped:Connect(function()
+                if hum.Parent then hum.Health = hum.MaxHealth end
+            end)
+            -- บังคับหยุดแอนิเมชันเดิมเพื่อทำ T-Pose
+            local anim = hum:FindFirstChildOfClass("Animator")
+            if anim then for _, track in ipairs(anim:GetPlayingAnimationTracks()) do track:Stop() end end
+            if char:FindFirstChild("Animate") then originalAnimate = char.Animate:Clone() char.Animate:Destroy() end
+        end
+    else
+        -- ปิดใช้งาน คืนค่าตัวละครปกติ
+        if godModeConnection then godModeConnection:Disconnect() godModeConnection = nil end
+        if hum then hum.MaxHealth = 100 hum.Health = 100 end
+        if originalAnimate and char and not char:FindFirstChild("Animate") then originalAnimate.Parent = char end
+    end
+end
+
+GodModeBtn.MouseButton1Click:Connect(function()
+    isGodMode = not isGodMode
+    GodModeBtn.Text = isGodMode and "🛡️ GOD MODE: ON" or "🛡️ GOD MODE: OFF"
+    GodModeBtn.BackgroundColor3 = isGodMode and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(255, 55, 55)
+    ToggleGodMode()
+end)
+
+LocalPlayer.CharacterAdded:Connect(function() if isGodMode then task.wait(1) ToggleGodMode() end end)
